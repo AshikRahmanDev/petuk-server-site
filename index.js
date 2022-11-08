@@ -16,10 +16,18 @@ const mealsCollection = client.db("petuk").collection("meals");
 
 async function run() {
   try {
+    // add meal data in mongodb
     app.post("/addMeal", async (req, res) => {
       const meal = req.body;
-
       const result = await mealsCollection.insertOne(meal);
+      res.send(result);
+    });
+
+    // get meals limited collection from mongodb
+    app.get("/home/meals", async (req, res) => {
+      const query = {};
+      const cursor = mealsCollection.find(query);
+      const result = await cursor.limit(3).toArray();
       res.send(result);
     });
   } finally {
