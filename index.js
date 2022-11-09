@@ -39,6 +39,17 @@ async function run() {
       res.send(result);
     });
 
+    // get user reviews form review collection
+    app.get("/reviews", async (req, res) => {
+      const meal = req.headers.meal;
+      const query = {
+        meal: meal,
+      };
+      const cursor = reviewCollection.find(query);
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
     // get meals collection form mongodb
     app.get("/menu/meals", async (req, res) => {
       const query = {};
