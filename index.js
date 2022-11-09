@@ -12,6 +12,7 @@ const uri =
   "mongodb+srv://adminUser1:xHk2A9FrOW81uuR0@cluster0.sqgzvsr.mongodb.net/test";
 const client = new MongoClient(uri);
 const mealsCollection = client.db("petuk").collection("meals");
+const reviewCollection = client.db("petuk").collection("reviews");
 // xHk2A9FrOW81uuR0
 
 async function run() {
@@ -20,6 +21,13 @@ async function run() {
     app.post("/addMeal", async (req, res) => {
       const meal = req.body;
       const result = await mealsCollection.insertOne(meal);
+      res.send(result);
+    });
+
+    // add review in mongodb
+    app.post("/add/review", async (req, res) => {
+      const review = req.body;
+      const result = await reviewCollection.insertOne(review);
       res.send(result);
     });
 
