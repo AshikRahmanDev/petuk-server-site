@@ -9,25 +9,27 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-const uri =
-  "mongodb+srv://adminUser1:xHk2A9FrOW81uuR0@cluster0.sqgzvsr.mongodb.net/test";
-const client = new MongoClient(uri);
+const uri = `mongodb+srv://${process.env.MONGODB_USER}:${process.env.MONGODB_PASSWORD}@cluster0.sqgzvsr.mongodb.net/?retryWrites=true&w=majority`;
+
+const client = new MongoClient(uri, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
 const mealsCollection = client.db("petuk").collection("meals");
 const reviewCollection = client.db("petuk").collection("reviews");
-// xHk2A9FrOW81uuR0
 
 const jwtAuth = (req, res, next) => {
   const clientToken = req.headers.authorization;
   if (!clientToken) {
-    return res.status(403).send("unauthorize access!");
+    return res.status(401).send("unauthorize access!");
   }
   jwt.verify(clientToken, process.env.JWT_TOKEN, function (err, decoded) {
     if (err) {
       return res.status(403).send("unauthorize access!");
     }
     req.decoded = decoded;
+    next();
   });
-  next();
 };
 
 async function run() {
@@ -35,7 +37,7 @@ async function run() {
     // jwt token api
     app.post("/jwt", (req, res) => {
       const user = req.body;
-      const token = jwt.sign(user, process.env.JWT_TOKEN, { expiresIn: "2h" });
+      const token = jwt.sign(user, process.env.JWT_TOKEN, { expiresIn: "7d" });
       res.send({ token });
     });
 
@@ -56,7 +58,7 @@ async function run() {
     // get meals limited collection from mongodb
     app.get("/home/meals", async (req, res) => {
       const query = {};
-      const cursor = mealsCollection.find(query);
+      const cursor = mealsCollection.find(query).sort({ _id: -1 });
       const result = await cursor.limit(3).toArray();
       res.send(result);
     });
@@ -67,7 +69,7 @@ async function run() {
       const query = {
         meal: meal,
       };
-      const cursor = reviewCollection.find(query).sort({ _id: -1 });
+      const cursor = reviewCollection.find(query).sort({ timeSet: -1 });
       const result = await cursor.toArray();
       res.send(result);
     });
@@ -75,7 +77,7 @@ async function run() {
     // get meals collection form mongodb
     app.get("/menu/meals", async (req, res) => {
       const query = {};
-      const cursor = mealsCollection.find(query);
+      const cursor = mealsCollection.find(query).sort({ _id: -1 });
       const result = await cursor.toArray();
       res.send(result);
     });
@@ -95,7 +97,7 @@ async function run() {
         return res.status(401).send({ Access: "unauthorize Access" });
       }
       const query = { email: email };
-      const cursor = reviewCollection.find(query).sort({ _id: -1 });
+      const cursor = reviewCollection.find(query).sort({ timeSet: -1 });
       const result = await cursor.toArray();
       res.send(result);
     });
@@ -105,6 +107,33 @@ async function run() {
       const id = req.query.id;
       const query = { _id: ObjectId(id) };
       const result = await reviewCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    // get single review api
+    app.get("/singleReview/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const result = await reviewCollection.findOne(query);
+      res.send(result);
+    });
+
+    // update review api
+    app.patch("/updateReview", async (req, res) => {
+      const id = req.body.id;
+      const updatedReview = req.body.review;
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: {
+          reviewMessage: updatedReview,
+        },
+      };
+      const filter = { _id: ObjectId(id) };
+      const result = await reviewCollection.updateOne(
+        filter,
+        updateDoc,
+        options
+      );
       res.send(result);
     });
   } finally {
