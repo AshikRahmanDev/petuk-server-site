@@ -1,7 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const { MongoClient, ObjectId } = require("mongodb");
-require("dotenv").config;
+const jwt = require("jsonwebtoken");
+require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -15,8 +16,29 @@ const mealsCollection = client.db("petuk").collection("meals");
 const reviewCollection = client.db("petuk").collection("reviews");
 // xHk2A9FrOW81uuR0
 
+const jwtAuth = (req, res, next) => {
+  const clientToken = req.headers.authorization;
+  if (!clientToken) {
+    return res.status(403).send("unauthorize access!");
+  }
+  jwt.verify(clientToken, process.env.JWT_TOKEN, function (err, decoded) {
+    if (err) {
+      return res.status(403).send("unauthorize access!");
+    }
+    req.decoded = decoded;
+  });
+  next();
+};
+
 async function run() {
   try {
+    // jwt token api
+    app.post("/jwt", (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.JWT_TOKEN, { expiresIn: "2h" });
+      res.send({ token });
+    });
+
     // add meal data in mongodb
     app.post("/addMeal", async (req, res) => {
       const meal = req.body;
@@ -45,7 +67,7 @@ async function run() {
       const query = {
         meal: meal,
       };
-      const cursor = reviewCollection.find(query);
+      const cursor = reviewCollection.find(query).sort({ _id: -1 });
       const result = await cursor.toArray();
       res.send(result);
     });
@@ -63,6 +85,26 @@ async function run() {
       const id = req.params.id;
       const query = { _id: ObjectId(id) };
       const result = await mealsCollection.findOne(query);
+      res.send(result);
+    });
+
+    // get user review with email
+    app.get("/user/reviews", jwtAuth, async (req, res) => {
+      const email = req.query.email;
+      if (req.decoded?.email !== email) {
+        return res.status(401).send({ Access: "unauthorize Access" });
+      }
+      const query = { email: email };
+      const cursor = reviewCollection.find(query).sort({ _id: -1 });
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    // delete user review
+    app.delete("/delete/review", async (req, res) => {
+      const id = req.query.id;
+      const query = { _id: ObjectId(id) };
+      const result = await reviewCollection.deleteOne(query);
       res.send(result);
     });
   } finally {
